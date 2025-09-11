@@ -342,49 +342,48 @@ class IMessageDatabase:
     def _extract_text_from_attributed_body(self, attributed_body: bytes) -> str:
         """Extract plain text from attributedBody binary data.
 
-        The attributedBody column contains text in a binary format that needs to be parsed.
-        This method attempts to extract the plain text content using a targeted approach.
+        Messages stored in the ``attributedBody`` column are archived
+        ``NSAttributedString`` objects.  This method unarchives the blob using
+        ``bpylist2``'s ``NSKeyedArchiver`` and returns the underlying string
+        value.  If the archive contains inline attachments they are represented
+        by the object replacement character (``\uFFFC``); these segments are
+        stripped from the result so that only the human‑readable text remains.
 
         Args:
-            attributed_body: Binary data from the attributedBody column
+            attributed_body: Binary data from the ``attributedBody`` column.
 
         Returns:
-            Extracted plain text or empty string if extraction fails
+            Extracted plain text, or an empty string if decoding fails.
         """
         if not attributed_body:
             return ""
 
+        text: str = ""
         try:
-            # Simpler approach: extract readable text from the binary data
-            # Based on observations from the debug output, the actual message text
-            # is embedded in the binary data as readable strings
+            from bpylist2 import bplist
 
-            # Convert to string, ignoring errors
-            decoded = attributed_body.decode('utf-8', errors='ignore')
-
-            # Split on null bytes which are common separators in the binary data
-            parts = decoded.split('\x00')
-
-            # Look for parts that contain readable text
-            for part in parts:
-                # Clean the part by removing control characters
-                clean_part = ''.join(c for c in part if ord(c) >= 32 or c in '\n\r\t ')
-                clean_part = clean_part.strip()
-
-                # Check if this part looks like a message (reasonable length, mostly printable)
-                if 10 <= len(clean_part) <= 1000:  # Reasonable message length
-                    printable_ratio = sum(1 for c in clean_part if c.isalnum() or c.isspace() or c in '.,!?;:-()"\'') / len(clean_part)
-                    # If mostly printable characters and doesn't contain binary markers
-                    if printable_ratio > 0.7 and not any(marker in clean_part for marker in ['streamtyped', 'NSAttributedString', 'NSObject', 'NSString', '__kIM', 'NSNumber']):
-                        # Additional check: look for sentence-like structure
-                        if any(ending in clean_part for ending in ['.', '!', '?']) or len(clean_part.split()) > 3:
-                            # Return the cleanest part - one that starts with a letter and doesn't end with binary artifacts
-                            clean_part = clean_part.split('iI')[0].strip()  # Remove trailing binary artifacts
-                            if clean_part and clean_part[0].isalpha():
-                                return clean_part
-
-            # If no clear message found, return empty string
-            return ""
+            # Unarchive the NSAttributedString stored in the blob
+            archiver = bplist.NSKeyedArchiver.from_bytes(attributed_body)
+            top = archiver.top_object()
+            text = top.get("NS.string", "")
         except Exception:
-            # If parsing fails, return empty string
-            return ""
+            # Fallback: attempt a lightweight parse using plistlib
+            try:
+                import plistlib
+
+                plist = plistlib.loads(attributed_body)
+                objects = plist.get("$objects", [])
+                top_uid = plist.get("$top", {}).get("root", {}).get("CF$UID")
+                if isinstance(top_uid, int) and top_uid < len(objects):
+                    root = objects[top_uid]
+                    string_uid = root.get("NS.string", {}).get("CF$UID")
+                    if isinstance(string_uid, int) and string_uid < len(objects):
+                        text = objects[string_uid]
+            except Exception:
+                return ""
+
+        if isinstance(text, bytes):
+            text = text.decode("utf-8", errors="ignore")
+
+        # Remove placeholders for attachments (NSTextAttachment)
+        return text.replace("\ufffc", "")
