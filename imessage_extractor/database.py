@@ -84,11 +84,33 @@ class IMessageDatabase:
             SQLite connection object to the iMessage database
 
         Raises:
-            sqlite3.Error: If there's an issue connecting to the database
+            sqlite3.OperationalError: If there's a permission issue or database is locked
+            sqlite3.Error: If there's any other issue connecting to the database
+            FileNotFoundError: If the database file doesn't exist
         """
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            return conn
+        except sqlite3.OperationalError as e:
+            if "permission denied" in str(e).lower():
+                raise PermissionError(
+                    f"Permission denied accessing {self.db_path}. "
+                    "Please ensure you have granted Full Disk Access to your terminal application "
+                    "in System Settings > Privacy & Security > Full Disk Access."
+                ) from e
+            elif "database is locked" in str(e).lower():
+                raise sqlite3.OperationalError(
+                    f"Database is locked: {self.db_path}. "
+                    "Please ensure the Messages app is completely quit before running this tool."
+                ) from e
+            else:
+                raise
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"Database file not found: {self.db_path}. "
+                "Please check that the path is correct and the file exists."
+            ) from e
 
     def find_chat_by_participant(self, identifier_substring: str) -> List[Dict[str, Any]]:
         """Find chats by participant identifier (phone number or email).

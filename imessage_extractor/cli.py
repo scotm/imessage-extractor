@@ -1,4 +1,6 @@
 import click
+import sqlite3
+import os
 from .database import IMessageDatabase
 
 
@@ -34,35 +36,51 @@ def export_chat_command(participant, output, db_path):
     Example:
         imessage-extractor export-chat "+1234567890" -o my_conversation.csv
     """
-    db = IMessageDatabase(db_path)
+    try:
+        db = IMessageDatabase(db_path)
 
-    # Find chats matching the participant
-    candidates = db.find_chat_by_participant(participant)
+        # Find chats matching the participant
+        candidates = db.find_chat_by_participant(participant)
 
-    if not candidates:
-        click.echo("No chats found with the specified participant.")
-        return
-
-    # Display chat options if multiple found
-    if len(candidates) > 1:
-        click.echo("Multiple chats found. Please select one:")
-        for i, chat in enumerate(candidates):
-            click.echo(f"{i+1}. {chat['display_name'] or chat['chat_identifier']} - Participants: {chat['participants']}")
-
-        choice = click.prompt("Enter the number of the chat to export", type=int)
-        if choice < 1 or choice > len(candidates):
-            click.echo("Invalid choice.")
+        if not candidates:
+            click.echo("No chats found with the specified participant.")
             return
 
-        chat_rowid = candidates[choice-1]["rowid"]
-    else:
-        chat_rowid = candidates[0]["rowid"]
-        chat_name = candidates[0]["display_name"] or candidates[0]["chat_identifier"]
-        click.echo(f"Exporting chat: {chat_name}")
+        # Display chat options if multiple found
+        if len(candidates) > 1:
+            click.echo("Multiple chats found. Please select one:")
+            for i, chat in enumerate(candidates):
+                click.echo(f"{i+1}. {chat['display_name'] or chat['chat_identifier']} - Participants: {chat['participants']}")
 
-    # Export the chat
-    db.export_chat_to_csv(chat_rowid, output)
-    click.echo(f"Chat exported to {output}")
+            choice = click.prompt("Enter the number of the chat to export", type=int)
+            if choice < 1 or choice > len(candidates):
+                click.echo("Invalid choice.")
+                return
+
+            chat_rowid = candidates[choice-1]["rowid"]
+        else:
+            chat_rowid = candidates[0]["rowid"]
+            chat_name = candidates[0]["display_name"] or candidates[0]["chat_identifier"]
+            click.echo(f"Exporting chat: {chat_name}")
+
+        # Export the chat
+        db.export_chat_to_csv(chat_rowid, output)
+        click.echo(f"Chat exported to {output}")
+    except PermissionError as e:
+        click.echo(f"Error: {e}", err=True)
+        click.echo("\nTo resolve this issue:", err=True)
+        click.echo("1. Open System Settings > Privacy & Security > Full Disk Access", err=True)
+        click.echo("2. Add your terminal application (Terminal, iTerm, etc.) to the list", err=True)
+        click.echo("3. Restart your terminal application", err=True)
+        click.echo("4. Quit the Messages app completely", err=True)
+        click.echo("5. Try running the command again", err=True)
+        return 1
+    except sqlite3.OperationalError as e:
+        click.echo(f"Database error: {e}", err=True)
+        return 1
+    except Exception as e:
+        click.echo(f"Unexpected error: {e}", err=True)
+        return 1
 
 
 @cli.command(name="export-all")
@@ -84,11 +102,27 @@ def export_all_command(output, db_path):
     Example:
         imessage-extractor export-all -o all_conversations.json
     """
-    db = IMessageDatabase(db_path)
+    try:
+        db = IMessageDatabase(db_path)
 
-    # Export all chats
-    db.export_all_chats_to_json(output)
-    click.echo(f"All chats exported to {output}")
+        # Export all chats
+        db.export_all_chats_to_json(output)
+        click.echo(f"All chats exported to {output}")
+    except PermissionError as e:
+        click.echo(f"Error: {e}", err=True)
+        click.echo("\nTo resolve this issue:", err=True)
+        click.echo("1. Open System Settings > Privacy & Security > Full Disk Access", err=True)
+        click.echo("2. Add your terminal application (Terminal, iTerm, etc.) to the list", err=True)
+        click.echo("3. Restart your terminal application", err=True)
+        click.echo("4. Quit the Messages app completely", err=True)
+        click.echo("5. Try running the command again", err=True)
+        return 1
+    except sqlite3.OperationalError as e:
+        click.echo(f"Database error: {e}", err=True)
+        return 1
+    except Exception as e:
+        click.echo(f"Unexpected error: {e}", err=True)
+        return 1
 
 
 @cli.command(name="list-chats")
@@ -108,20 +142,36 @@ def list_chats_command(participant, db_path):
     Example:
         imessage-extractor list-chats "+1234567890"
     """
-    db = IMessageDatabase(db_path)
+    try:
+        db = IMessageDatabase(db_path)
 
-    # Find chats matching the participant
-    candidates = db.find_chat_by_participant(participant)
+        # Find chats matching the participant
+        candidates = db.find_chat_by_participant(participant)
 
-    if not candidates:
-        click.echo("No chats found with the specified participant.")
-        return
+        if not candidates:
+            click.echo("No chats found with the specified participant.")
+            return
 
-    click.echo(f"Found {len(candidates)} chat(s):")
-    for i, chat in enumerate(candidates):
-        display_name = chat["display_name"] or "Unnamed chat"
-        participants = chat["participants"]
-        click.echo(f"{i+1}. {display_name}")
-        click.echo(f"   Identifier: {chat['chat_identifier']}")
-        click.echo(f"   Participants: {participants}")
-        click.echo()
+        click.echo(f"Found {len(candidates)} chat(s):")
+        for i, chat in enumerate(candidates):
+            display_name = chat["display_name"] or "Unnamed chat"
+            participants = chat["participants"]
+            click.echo(f"{i+1}. {display_name}")
+            click.echo(f"   Identifier: {chat['chat_identifier']}")
+            click.echo(f"   Participants: {participants}")
+            click.echo()
+    except PermissionError as e:
+        click.echo(f"Error: {e}", err=True)
+        click.echo("\nTo resolve this issue:", err=True)
+        click.echo("1. Open System Settings > Privacy & Security > Full Disk Access", err=True)
+        click.echo("2. Add your terminal application (Terminal, iTerm, etc.) to the list", err=True)
+        click.echo("3. Restart your terminal application", err=True)
+        click.echo("4. Quit the Messages app completely", err=True)
+        click.echo("5. Try running the command again", err=True)
+        return 1
+    except sqlite3.OperationalError as e:
+        click.echo(f"Database error: {e}", err=True)
+        return 1
+    except Exception as e:
+        click.echo(f"Unexpected error: {e}", err=True)
+        return 1

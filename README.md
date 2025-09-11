@@ -67,8 +67,23 @@ Before using this tool, you need to:
    cp ~/Library/Messages/chat.db /tmp/chat.db
    ```
 
-For iCloud Messages users: The local database still reflects synced messages, but some
-items may be archived. To ensure you have the most complete data:
+### Granting Full Disk Access
+
+macOS restricts access to sensitive locations like `~/Library/Messages/` for security reasons.
+To grant the necessary permissions:
+
+1. Open **System Settings** > **Privacy & Security** > **Full Disk Access**
+2. Click the lock icon and authenticate with your password
+3. Click the **+** button to add an application
+4. Press **Cmd+Shift+G** and enter `/Applications/Utilities/Terminal.app` (or your terminal app)
+5. Select **Terminal** (or your terminal app) and click **Open**
+6. If using an IDE or other Python environment, add that as well
+7. Completely quit and restart your terminal application
+
+### For iCloud Messages users
+
+The local database still reflects synced messages, but some items may be archived. 
+To ensure you have the most complete data:
 
 ```bash
 cp ~/Library/Messages/chat.db* /tmp/
@@ -76,6 +91,23 @@ cp ~/Library/Messages/chat.db* /tmp/
 
 This copies the main database file along with the WAL and SHM files which contain 
 recent messages that haven't been fully committed to the main database yet.
+
+### Troubleshooting Permission Errors
+
+If you encounter permission errors:
+
+1. Double-check that your terminal application has been added to Full Disk Access
+2. Ensure you've restarted your terminal after granting permissions
+3. Verify the Messages app is completely quit (check Activity Monitor if needed)
+4. Try copying the database files to a different location and using the `-d` option:
+   ```bash
+   # Copy all database files
+   mkdir -p /tmp/messages-db
+   cp ~/Library/Messages/chat.db* /tmp/messages-db/
+   
+   # Use with the tool
+   imessage-extractor export-chat "+1234567890" -d /tmp/messages-db/chat.db
+   ```
 
 ## Data Format
 
