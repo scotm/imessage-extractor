@@ -180,8 +180,15 @@ Unix timestamps and then formatted as ISO strings in your local timezone.
 For group chats, the `display_name` field contains the chat's name when available, and all 
 participants are listed in the `participants` field.
 
-Attachments are referenced by relative paths which are typically within the 
+Attachments are referenced by relative paths which are typically within the
 `~/Library/Messages/Attachments/` directory.
+
+### Rich Text Messages
+
+Some messages include rich formatting or special effects. In these cases the
+plain text may be stored in the `attributedBody` column rather than `text`.
+This project now decompresses and unarchives that data to extract the message
+string when present.
 
 ## Common Issues
 
