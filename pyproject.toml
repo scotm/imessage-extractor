@@ -1,0 +1,28 @@
+[project]
+name = "imessage-extractor"
+version = "0.2"
+description = "Parse and Extract iMessage Conversations"
+readme = "README.md"
+authors = [{name = "Scott Macdonald"}]
+license = "Apache-2.0"
+requires-python = ">=3.13"
+classifiers = []
+dependencies = [
+    "click"
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/scotm/imessage-extractor"
+Changelog = "https://github.com/scotm/imessage-extractor/releases"
+Issues = "https://github.com/scotm/imessage-extractor/issues"
+CI = "https://github.com/scotm/imessage-extractor/actions"
+
+[project.scripts]
+imessage-extractor = "imessage_extractor.cli:cli"
+
+[project.optional-dependencies]
+test = ["pytest"]
