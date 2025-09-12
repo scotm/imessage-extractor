@@ -161,6 +161,9 @@ To run the tests:
 python -m pytest
 ```
 
+The test suite covers input validation helpers, database export functions, and
+parser utilities (such as URL and mention extraction).
+
 ## How It Works
 
 This tool directly reads your iMessage database file (chat.db) which is maintained by macOS. 
