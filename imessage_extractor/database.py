@@ -4,6 +4,7 @@ import csv
 import json
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
+import typedstream
 
 
 class IMessageDatabase:
@@ -344,8 +345,8 @@ class IMessageDatabase:
 
         Messages stored in the ``attributedBody`` column are archived
         ``NSAttributedString`` objects.  This method unarchives the blob using
-        ``bpylist2``'s ``NSKeyedArchiver`` and returns the underlying string
-        value.  If the archive contains inline attachments they are represented
+        ``typedstream`` and returns the underlying string value.
+        If the archive contains inline attachments they are represented
         by the object replacement character (``\uFFFC``); these segments are
         stripped from the result so that only the human‑readable text remains.
 
@@ -358,32 +359,54 @@ class IMessageDatabase:
         if not attributed_body:
             return ""
 
-        text: str = ""
         try:
-            from bpylist2 import bplist
-
             # Unarchive the NSAttributedString stored in the blob
-            archiver = bplist.NSKeyedArchiver.from_bytes(attributed_body)
-            top = archiver.top_object()
-            text = top.get("NS.string", "")
+            stream = typedstream.unarchive_from_data(attributed_body)
+
+            # Extract text from the contents attribute
+            if hasattr(stream, 'contents') and stream.contents:
+                # The first element in contents is typically the text string
+                first_content = stream.contents[0]
+                # If it's a TypedValue, get its value
+                if hasattr(first_content, 'value'):
+                    text = first_content.value
+                    # If it's a string object with a 'string' attribute, use that
+                    if hasattr(text, 'string'):
+                        text = text.string
+                    elif isinstance(text, bytes):
+                        # Decode bytes to string
+                        text = text.decode("utf-8", errors="ignore")
+                    elif not isinstance(text, str):
+                        # Convert other objects to string
+                        text = str(text)
+
+                    # Clean up the text representation for NSString/NSMutableString objects
+                    text_str = str(text)
+                    # Remove object wrapper notation like NSString("...") or NSMutableString('...')
+                    if text_str.startswith(('NSString(', 'NSMutableString(')) and text_str.endswith(')'):
+                        # Extract the inner content between the outermost parentheses
+                        inner_content = text_str[text_str.find('(')+1:text_str.rfind(')')]
+                        # Remove surrounding quotes if present
+                        if (inner_content.startswith('"') and inner_content.endswith('"')) or \
+                           (inner_content.startswith("'") and inner_content.endswith("'")):
+                            text_str = inner_content[1:-1]
+                        else:
+                            text_str = inner_content
+                    # Convert escaped characters to actual characters
+                    # Handle common escape sequences
+                    text_str = text_str.replace('\\n', '\n').replace('\\t', '\t').replace('\\r', '\r')
+                    # Handle common escape sequences and unicode characters more carefully
+                    text_str = text_str.replace('\\n', '\n').replace('\\t', '\t').replace('\\r', '\r')
+                    # Handle specific unicode escape sequences we commonly see
+                    text_str = text_str.replace('\\u200a', '\u200a').replace('\\u200b', '\u200b').replace('\\u200c', '\u200c')
+                    # Remove placeholders for attachments (NSTextAttachment)
+                    return text_str.replace("\ufffc", "") if text_str else ""
+                else:
+                    # If first_content is already the text
+                    text = str(first_content)
+                    return text.replace("\ufffc", "") if text else ""
+            return ""
         except Exception:
-            # Fallback: attempt a lightweight parse using plistlib
-            try:
-                import plistlib
-
-                plist = plistlib.loads(attributed_body)
-                objects = plist.get("$objects", [])
-                top_uid = plist.get("$top", {}).get("root", {}).get("CF$UID")
-                if isinstance(top_uid, int) and top_uid < len(objects):
-                    root = objects[top_uid]
-                    string_uid = root.get("NS.string", {}).get("CF$UID")
-                    if isinstance(string_uid, int) and string_uid < len(objects):
-                        text = objects[string_uid]
-            except Exception:
-                return ""
-
-        if isinstance(text, bytes):
-            text = text.decode("utf-8", errors="ignore")
-
-        # Remove placeholders for attachments (NSTextAttachment)
-        return text.replace("\ufffc", "")
+            # Re-raise the exception so it can be handled by the calling function
+            # This ensures we don't silently swallow exceptions
+            raise
