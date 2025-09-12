@@ -5,7 +5,7 @@ import logging
 import sys
 from typing import Optional
 
-from .constants import GUIDANCE_PERMISSION_ERROR
+from .constants import GUIDANCE_FILE_NOT_FOUND, GUIDANCE_PERMISSION_ERROR
 from .exceptions import (
     DatabaseError,
     DatabasePermissionError,
@@ -51,6 +51,22 @@ def handle_database_error(e: DatabaseError, logger: logging.Logger) -> int:
     """
     logger.error(f"Database error: {e}")
     print(f"Database error: {e}", file=sys.stderr)
+    return 1
+
+
+def handle_file_not_found_error(e: FileNotFoundError, logger: logging.Logger) -> int:
+    """Handle file not found errors with helpful guidance.
+
+    Args:
+        e: The file not found error exception
+        logger: Logger instance for verbose output
+
+    Returns:
+        Exit code 1
+    """
+    logger.error(f"File not found: {e}")
+    print(f"Error: {e}", file=sys.stderr)
+    print(GUIDANCE_FILE_NOT_FOUND, file=sys.stderr)
     return 1
 
 
@@ -143,11 +159,13 @@ def handle_error_with_fallback(e: Exception, logger: logging.Logger, fallback_me
     # Map exception types to their handlers
     error_handlers = {
         DatabasePermissionError: handle_permission_error,
+        PermissionError: handle_permission_error,
         DatabaseLockedError: handle_database_error,
         DatabaseNotFoundError: handle_database_error,
         DatabaseError: handle_database_error,
         FileWriteError: handle_file_operation_error,
         FileReadError: handle_file_operation_error,
+        FileNotFoundError: handle_file_not_found_error,
         FileOperationError: handle_file_operation_error,
         MissingRequiredFieldError: handle_validation_error,
         InvalidChoiceError: handle_validation_error,

@@ -108,6 +108,13 @@ To resolve this issue:
 5. Try running the command again
 """
 
+GUIDANCE_FILE_NOT_FOUND = """
+To resolve this issue:
+1. Verify the file path is correct
+2. Ensure the file exists and you have access to it
+3. Expand any '~' or environment variables to full paths
+"""
+
 # Validation Constants
 REQUIRED_CHAT_KEYS = ["rowid", "display_name", "chat_identifier", "participants"]
 MAX_CHOICE_INDEX = 1000  # Reasonable upper bound for user selection
