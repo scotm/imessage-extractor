@@ -199,6 +199,119 @@ class TextParser:
         return mentions
 
     @staticmethod
+    def _detect_mime_from_file_command(file_path: str) -> Optional[str]:
+        """Detect MIME type using the 'file' command.
+
+        Args:
+            file_path: Path to the file to examine
+
+        Returns:
+            Detected MIME type or None if detection fails
+        """
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                ["file", "--mime-type", "-b", file_path],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                mime_type = result.stdout.strip()
+                if mime_type != "application/octet-stream":
+                    return mime_type
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+            pass
+        return None
+
+    @staticmethod
+    def _detect_mime_from_magic_library(file_path: str) -> Optional[str]:
+        """Detect MIME type using python-magic library.
+
+        Args:
+            file_path: Path to the file to examine
+
+        Returns:
+            Detected MIME type or None if detection fails
+        """
+        try:
+            import magic  # type: ignore
+            mime_type = magic.from_file(file_path, mime=True)
+            if mime_type and mime_type != "application/octet-stream":
+                return mime_type
+        except (ImportError, AttributeError):
+            pass
+        return None
+
+    @staticmethod
+    def _detect_mime_from_extension(file_path: str) -> Optional[str]:
+        """Detect MIME type using file extension.
+
+        Args:
+            file_path: Path to the file to examine
+
+        Returns:
+            Detected MIME type or None if detection fails
+        """
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(file_path)
+        return mime_type
+
+    @staticmethod
+    def _detect_mime_from_signature(file_path: str) -> Optional[str]:
+        """Detect MIME type by examining file signature (magic bytes).
+
+        Args:
+            file_path: Path to the file to examine
+
+        Returns:
+            Detected MIME type or None if detection fails
+        """
+        try:
+            with open(file_path, 'rb') as f:
+                header = f.read(64)  # Read first 64 bytes
+
+            # Define signature patterns and their MIME types
+            signatures = [
+                (b'\xff\xd8\xff', "image/jpeg"),
+                (b'\x89PNG\r\n\x1a\n', "image/png"),
+                (b'GIF87a', "image/gif"),
+                (b'GIF89a', "image/gif"),
+                (b'BM', "image/bmp"),
+                (b'%PDF', "application/pdf"),
+                (b'PK\x03\x04', "application/zip"),
+                (b'\x1f\x8b', "application/gzip"),
+                (b'BZh', "application/x-bzip2"),
+                (b'7z\xbc\xaf\x27\x1c', "application/x-7z-compressed"),
+                (b'Rar!\x1a\x07', "application/x-rar-compressed"),
+                (b'fLaC', "audio/flac"),
+                (b'\x00\x00\x00\x20ftypM4A', "audio/mp4"),
+                (b'\x00\x00\x00\x20ftypmp4', "video/mp4"),
+                (b'\x1a\x45\xdf\xa3', "video/webm"),
+                (b'FLV\x01', "video/x-flv"),
+                (b'\x00\x00\x00\x14ftyp', "video/mp4"),
+                (b'MOVI', "video/quicktime"),
+            ]
+
+            # Check for MP3 signatures (more complex patterns)
+            if header.startswith(b'ID3') or header.startswith((b'\xff\xfb', b'\xff\xf3')):
+                return "audio/mpeg"
+
+            # Check for WebP (needs special handling)
+            if header.startswith(b'RIFF') and len(header) >= 12 and header[8:12] == b'WEBP':
+                return "image/webp"
+
+            # Check other signatures
+            for signature, mime_type in signatures:
+                if header.startswith(signature):
+                    return mime_type
+
+        except (OSError, IOError):
+            pass
+        return None
+
+    @staticmethod
     def detect_mime_type(file_path: str) -> str:
         """Detect MIME type of a file by examining its content.
 
@@ -215,88 +328,22 @@ class TextParser:
             Detected MIME type string, or 'application/octet-stream' if unknown
         """
         import os
-        import subprocess
 
         if not os.path.exists(file_path):
             return "application/octet-stream"
 
-        # Method 1: Use the `file` command if available
-        try:
-            result = subprocess.run(
-                ["file", "--mime-type", "-b", file_path],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                mime_type = result.stdout.strip()
-                if mime_type != "application/octet-stream":
-                    return mime_type
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
-            pass
+        # Try detection methods in order of reliability
+        detection_methods = [
+            TextParser._detect_mime_from_file_command,
+            TextParser._detect_mime_from_magic_library,
+            TextParser._detect_mime_from_extension,
+            TextParser._detect_mime_from_signature,
+        ]
 
-        # Method 2: Try python-magic if available
-        try:
-            import magic  # type: ignore
-            mime_type = magic.from_file(file_path, mime=True)
-            if mime_type and mime_type != "application/octet-stream":
+        for method in detection_methods:
+            mime_type = method(file_path)
+            if mime_type:
                 return mime_type
-        except (ImportError, AttributeError):
-            pass
-
-        # Method 3: Use mimetypes based on file extension
-        import mimetypes
-        mime_type, _ = mimetypes.guess_type(file_path)
-        if mime_type:
-            return mime_type
-
-        # Method 4: Manual detection for common file types without extensions
-        try:
-            with open(file_path, 'rb') as f:
-                header = f.read(64)  # Read first 64 bytes
-
-            # Check for common file signatures
-            if header.startswith(b'\xff\xd8\xff'):  # JPEG
-                return "image/jpeg"
-            elif header.startswith(b'\x89PNG\r\n\x1a\n'):  # PNG
-                return "image/png"
-            elif header.startswith(b'GIF87a') or header.startswith(b'GIF89a'):  # GIF
-                return "image/gif"
-            elif header.startswith(b'BM'):  # BMP
-                return "image/bmp"
-            elif header.startswith(b'RIFF') and header[8:12] == b'WEBP':  # WebP
-                return "image/webp"
-            elif header.startswith(b'%PDF'):  # PDF
-                return "application/pdf"
-            elif header.startswith(b'PK\x03\x04'):  # ZIP
-                return "application/zip"
-            elif header.startswith(b'\x1f\x8b'):  # GZIP
-                return "application/gzip"
-            elif header.startswith(b'BZh'):  # BZIP2
-                return "application/x-bzip2"
-            elif header.startswith(b'7z\xbc\xaf\x27\x1c'):  # 7Z
-                return "application/x-7z-compressed"
-            elif header.startswith(b'Rar!\x1a\x07'):  # RAR
-                return "application/x-rar-compressed"
-            elif header.startswith(b'fLaC'):  # FLAC audio
-                return "audio/flac"
-            elif header.startswith(b'ID3') or header.startswith(b'\xff\xfb') or header.startswith(b'\xff\xf3'):  # MP3
-                return "audio/mpeg"
-            elif header.startswith(b'\x00\x00\x00\x20ftypM4A'):  # M4A
-                return "audio/mp4"
-            elif header.startswith(b'\x00\x00\x00\x20ftypmp4'):  # MP4 video
-                return "video/mp4"
-            elif header.startswith(b'\x1a\x45\xdf\xa3'):  # WebM/MKV
-                return "video/webm"
-            elif header.startswith(b'FLV\x01'):  # FLV
-                return "video/x-flv"
-            elif header.startswith(b'\x00\x00\x00\x14ftyp'):  # Generic MP4
-                return "video/mp4"
-            elif header.startswith(b'MOVI'):  # MOV
-                return "video/quicktime"
-
-        except (OSError, IOError):
-            pass
 
         # Default fallback
         return "application/octet-stream"
