@@ -142,6 +142,35 @@ The JSON export groups messages by conversation thread and includes:
   - `thread_originator_guid`: Reference to thread root message (for replies)
   - `attachments`: List of attachments with name, MIME type, and path
 
+## Synthetic Sample Data
+
+If you want to experiment without using real messages, you can create a tiny
+CSV file with two mock entries:
+
+```csv
+message_id,timestamp_local_iso,from_me,sender_identifier,text,service,attachment_name,attachment_mime,attachment_path
+1,2024-01-01T00:00:00,1,+1234567890,Hello world,iMessage,,,
+2,2024-01-01T00:01:00,0,+0987654321,Hi!,iMessage,,,
+```
+
+Save the above as `sample.csv`, or generate it using Python:
+
+```bash
+python - <<'PY'
+import csv
+rows = [
+    {"message_id": 1, "timestamp_local_iso": "2024-01-01T00:00:00", "from_me": 1, "sender_identifier": "+1234567890", "text": "Hello world", "service": "iMessage", "attachment_name": "", "attachment_mime": "", "attachment_path": ""},
+    {"message_id": 2, "timestamp_local_iso": "2024-01-01T00:01:00", "from_me": 0, "sender_identifier": "+0987654321", "text": "Hi!", "service": "iMessage", "attachment_name": "", "attachment_mime": "", "attachment_path": ""},
+]
+with open("sample.csv", "w", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+    writer.writeheader()
+    writer.writerows(rows)
+PY
+```
+
+This writes `sample.csv` in the current directory.
+
 ## Development
 
 To contribute to this tool, first checkout the code. Then create a new virtual environment:
