@@ -5,7 +5,7 @@ description = "Parse and Extract iMessage Conversations"
 readme = "README.md"
 authors = [{name = "Scott Macdonald"}]
 license = "Apache-2.0"
-requires-python = ">=3.13"
+requires-python = ">=3.9"
 classifiers = []
 dependencies = [
     "click",
