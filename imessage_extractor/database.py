@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 import typedstream
 
+from .parsers import TextParser
+
 
 class IMessageDatabase:
     """A class to handle extraction of messages from the iMessage database.
@@ -343,12 +345,7 @@ class IMessageDatabase:
     def _extract_text_from_attributed_body(self, attributed_body: bytes) -> str:
         """Extract plain text from attributedBody binary data.
 
-        Messages stored in the ``attributedBody`` column are archived
-        ``NSAttributedString`` objects.  This method unarchives the blob using
-        ``typedstream`` and returns the underlying string value.
-        If the archive contains inline attachments they are represented
-        by the object replacement character (``\uFFFC``); these segments are
-        stripped from the result so that only the human‑readable text remains.
+        Delegates to the TextParser class for actual extraction.
 
         Args:
             attributed_body: Binary data from the ``attributedBody`` column.
@@ -356,57 +353,4 @@ class IMessageDatabase:
         Returns:
             Extracted plain text, or an empty string if decoding fails.
         """
-        if not attributed_body:
-            return ""
-
-        try:
-            # Unarchive the NSAttributedString stored in the blob
-            stream = typedstream.unarchive_from_data(attributed_body)
-
-            # Extract text from the contents attribute
-            if hasattr(stream, 'contents') and stream.contents:
-                # The first element in contents is typically the text string
-                first_content = stream.contents[0]
-                # If it's a TypedValue, get its value
-                if hasattr(first_content, 'value'):
-                    text = first_content.value
-                    # If it's a string object with a 'string' attribute, use that
-                    if hasattr(text, 'string'):
-                        text = text.string
-                    elif isinstance(text, bytes):
-                        # Decode bytes to string
-                        text = text.decode("utf-8", errors="ignore")
-                    elif not isinstance(text, str):
-                        # Convert other objects to string
-                        text = str(text)
-
-                    # Clean up the text representation for NSString/NSMutableString objects
-                    text_str = str(text)
-                    # Remove object wrapper notation like NSString("...") or NSMutableString('...')
-                    if text_str.startswith(('NSString(', 'NSMutableString(')) and text_str.endswith(')'):
-                        # Extract the inner content between the outermost parentheses
-                        inner_content = text_str[text_str.find('(')+1:text_str.rfind(')')]
-                        # Remove surrounding quotes if present
-                        if (inner_content.startswith('"') and inner_content.endswith('"')) or \
-                           (inner_content.startswith("'") and inner_content.endswith("'")):
-                            text_str = inner_content[1:-1]
-                        else:
-                            text_str = inner_content
-                    # Convert escaped characters to actual characters
-                    # Handle common escape sequences
-                    text_str = text_str.replace('\\n', '\n').replace('\\t', '\t').replace('\\r', '\r')
-                    # Handle common escape sequences and unicode characters more carefully
-                    text_str = text_str.replace('\\n', '\n').replace('\\t', '\t').replace('\\r', '\r')
-                    # Handle specific unicode escape sequences we commonly see
-                    text_str = text_str.replace('\\u200a', '\u200a').replace('\\u200b', '\u200b').replace('\\u200c', '\u200c')
-                    # Remove placeholders for attachments (NSTextAttachment)
-                    return text_str.replace("\ufffc", "") if text_str else ""
-                else:
-                    # If first_content is already the text
-                    text = str(first_content)
-                    return text.replace("\ufffc", "") if text else ""
-            return ""
-        except Exception:
-            # Re-raise the exception so it can be handled by the calling function
-            # This ensures we don't silently swallow exceptions
-            raise
+        return TextParser.extract_text_from_attributed_body(attributed_body)
