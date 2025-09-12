@@ -1,7 +1,6 @@
 
 """Text parsing utilities for the iMessage Extractor application."""
 
-import codecs
 from typing import Optional
 
 from .constants import (

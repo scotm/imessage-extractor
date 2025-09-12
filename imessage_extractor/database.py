@@ -4,7 +4,6 @@ import csv
 import json
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
-import typedstream
 
 from .parsers import TextParser
 

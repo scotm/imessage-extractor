@@ -4,7 +4,7 @@
 import os
 from typing import Dict, List, Any, Optional
 
-from .constants import REQUIRED_CHAT_KEYS, MAX_CHOICE_INDEX
+from .constants import REQUIRED_CHAT_KEYS
 from .exceptions import (
     MissingRequiredFieldError,
     InvalidChoiceError,

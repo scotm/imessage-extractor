@@ -1,5 +1,4 @@
 import click
-from typing import Optional
 
 from .commands import (
     export_chat_command,

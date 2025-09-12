@@ -20,7 +20,6 @@ from .exceptions import (
     InvalidChoiceError,
     NoChatsFoundError,
     TextExtractionError,
-    UnsupportedOperationError,
 )
 
 
