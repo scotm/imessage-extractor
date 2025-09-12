@@ -218,28 +218,35 @@ class IMessageDatabase:
                 w.writerow([
                     "message_id", "timestamp_local_iso", "from_me", "sender_identifier",
                     "text", "service", "attachment_name", "attachment_mime", "attachment_path"
-                ])
+                 ])
 
                 for r in rows:
-                    unix_ts = self.apple_to_unix(r["date"])
-                    # Extract text from either text column or attributedBody
-                    message_text = ""
-                    if r["text"]:
-                        message_text = r["text"]
-                    elif r["attributedBody"]:
-                        message_text = self._extract_text_from_attributed_body(r["attributedBody"])
+                     unix_ts = self.apple_to_unix(r["date"])
+                     # Extract text from either text column or attributedBody
+                     message_text = ""
+                     if r["text"]:
+                         message_text = r["text"]
+                     elif r["attributedBody"]:
+                         message_text = self._extract_text_from_attributed_body(r["attributedBody"])
 
-                    w.writerow([
-                        r["message_id"],
-                        self.format_timestamp(unix_ts),
-                        int(r["is_from_me"] or 0),
-                        r["handle_identifier"] or "",
-                        (message_text or "").replace("\r\n", "\n"),
-                        r["service"] or "",
-                        r["attachment_name"] or "",
-                        r["attachment_mime"] or "",
-                        r["attachment_path"] or ""
-                    ])
+                     # Detect actual MIME type if attachment exists
+                     detected_mime = r["attachment_mime"] or ""
+                     if r["attachment_path"]:
+                         full_path = os.path.join(self.attachment_path, r["attachment_path"])
+                         if os.path.exists(full_path):
+                             detected_mime = TextParser.detect_mime_type(full_path)
+
+                     w.writerow([
+                         r["message_id"],
+                         self.format_timestamp(unix_ts),
+                         int(r["is_from_me"] or 0),
+                         r["handle_identifier"] or "",
+                         (message_text or "").replace("\r\n", "\n"),
+                         r["service"] or "",
+                         r["attachment_name"] or "",
+                         detected_mime,
+                         r["attachment_path"] or ""
+                     ])
         finally:
             conn.close()
 
@@ -300,11 +307,18 @@ class IMessageDatabase:
                 JOIN chat_message_join cmj ON cmj.message_id = maj.message_id
             """).fetchall()
 
-            # Index attachments per message
+            # Index attachments per message with improved MIME type detection
             att_map = {}
             for a in atts:
+                # Detect actual MIME type if file exists
+                detected_mime = a["mime"] or ""
+                if a["path"]:
+                    full_path = os.path.join(self.attachment_path, a["path"])
+                    if os.path.exists(full_path):
+                        detected_mime = TextParser.detect_mime_type(full_path)
+
                 att_map.setdefault(a["message_id"], []).append({
-                    "name": a["name"], "mime": a["mime"], "path": a["path"]
+                    "name": a["name"], "mime": detected_mime, "path": a["path"]
                 })
 
             # Group messages per chat

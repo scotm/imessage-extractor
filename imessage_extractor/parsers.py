@@ -199,6 +199,109 @@ class TextParser:
         return mentions
 
     @staticmethod
+    def detect_mime_type(file_path: str) -> str:
+        """Detect MIME type of a file by examining its content.
+
+        Uses multiple methods to determine the correct MIME type:
+        1. `file` command (most reliable)
+        2. `magic` library for content-based detection
+        3. Python's mimetypes module as fallback
+        4. Manual detection for common file types
+
+        Args:
+            file_path: Path to the file to examine
+
+        Returns:
+            Detected MIME type string, or 'application/octet-stream' if unknown
+        """
+        import os
+        import subprocess
+
+        if not os.path.exists(file_path):
+            return "application/octet-stream"
+
+        # Method 1: Use the `file` command if available
+        try:
+            result = subprocess.run(
+                ["file", "--mime-type", "-b", file_path],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                mime_type = result.stdout.strip()
+                if mime_type != "application/octet-stream":
+                    return mime_type
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+            pass
+
+        # Method 2: Try python-magic if available
+        try:
+            import magic  # type: ignore
+            mime_type = magic.from_file(file_path, mime=True)
+            if mime_type and mime_type != "application/octet-stream":
+                return mime_type
+        except (ImportError, AttributeError):
+            pass
+
+        # Method 3: Use mimetypes based on file extension
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if mime_type:
+            return mime_type
+
+        # Method 4: Manual detection for common file types without extensions
+        try:
+            with open(file_path, 'rb') as f:
+                header = f.read(64)  # Read first 64 bytes
+
+            # Check for common file signatures
+            if header.startswith(b'\xff\xd8\xff'):  # JPEG
+                return "image/jpeg"
+            elif header.startswith(b'\x89PNG\r\n\x1a\n'):  # PNG
+                return "image/png"
+            elif header.startswith(b'GIF87a') or header.startswith(b'GIF89a'):  # GIF
+                return "image/gif"
+            elif header.startswith(b'BM'):  # BMP
+                return "image/bmp"
+            elif header.startswith(b'RIFF') and header[8:12] == b'WEBP':  # WebP
+                return "image/webp"
+            elif header.startswith(b'%PDF'):  # PDF
+                return "application/pdf"
+            elif header.startswith(b'PK\x03\x04'):  # ZIP
+                return "application/zip"
+            elif header.startswith(b'\x1f\x8b'):  # GZIP
+                return "application/gzip"
+            elif header.startswith(b'BZh'):  # BZIP2
+                return "application/x-bzip2"
+            elif header.startswith(b'7z\xbc\xaf\x27\x1c'):  # 7Z
+                return "application/x-7z-compressed"
+            elif header.startswith(b'Rar!\x1a\x07'):  # RAR
+                return "application/x-rar-compressed"
+            elif header.startswith(b'fLaC'):  # FLAC audio
+                return "audio/flac"
+            elif header.startswith(b'ID3') or header.startswith(b'\xff\xfb') or header.startswith(b'\xff\xf3'):  # MP3
+                return "audio/mpeg"
+            elif header.startswith(b'\x00\x00\x00\x20ftypM4A'):  # M4A
+                return "audio/mp4"
+            elif header.startswith(b'\x00\x00\x00\x20ftypmp4'):  # MP4 video
+                return "video/mp4"
+            elif header.startswith(b'\x1a\x45\xdf\xa3'):  # WebM/MKV
+                return "video/webm"
+            elif header.startswith(b'FLV\x01'):  # FLV
+                return "video/x-flv"
+            elif header.startswith(b'\x00\x00\x00\x14ftyp'):  # Generic MP4
+                return "video/mp4"
+            elif header.startswith(b'MOVI'):  # MOV
+                return "video/quicktime"
+
+        except (OSError, IOError):
+            pass
+
+        # Default fallback
+        return "application/octet-stream"
+
+    @staticmethod
     def format_timestamp_for_display(unix_ts: Optional[float]) -> str:
         """Format Unix timestamp as ISO string in local timezone.
 
