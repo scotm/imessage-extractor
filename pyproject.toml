@@ -1,6 +1,6 @@
 [project]
 name = "imessage-extractor"
-version = "0.2"
+version = "0.3"
 description = "Parse and Extract iMessage Conversations"
 readme = "README.md"
 authors = [{name = "Scott Macdonald"}]
@@ -9,7 +9,6 @@ requires-python = ">=3.13"
 classifiers = []
 dependencies = [
     "click",
-    "bpylist2",
     "pytypedstream"
 ]
 

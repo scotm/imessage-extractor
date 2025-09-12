@@ -22,8 +22,8 @@ class TextParser:
         """Extract plain text from attributedBody binary data.
 
         Messages stored in the ``attributedBody`` column are archived
-        ``NSAttributedString`` objects. This method unarchives the blob using
-        ``typedstream`` and returns the underlying string value.
+        ``NSAttributedString`` objects. This method handles both binary plist
+        (NSKeyedArchiver) and typedstream formats, returning the underlying string value.
         If the archive contains inline attachments they are represented
         by the object replacement character (``\uFFFC``); these segments are
         stripped from the result so that only the human‑readable text remains.
@@ -41,6 +41,36 @@ class TextParser:
             return ""
 
         try:
+            # First try to parse as binary plist (NSKeyedArchiver format)
+            if attributed_body.startswith(b'bplist00'):
+                import plistlib
+                plist_data = plistlib.loads(attributed_body)
+
+                # Extract text from NSKeyedArchiver format
+                if "$objects" in plist_data and "$top" in plist_data:
+                    objects = plist_data["$objects"]
+                    top = plist_data["$top"]
+
+                    # Get the root object
+                    if "root" in top:
+                        root_ref = top["root"]
+                        if isinstance(root_ref, dict) and "CF$UID" in root_ref:
+                            root_uid = root_ref["CF$UID"]
+                            if root_uid < len(objects):
+                                root_obj = objects[root_uid]
+                                if isinstance(root_obj, dict) and "NS.string" in root_obj:
+                                    string_ref = root_obj["NS.string"]
+                                    if isinstance(string_ref, dict) and "CF$UID" in string_ref:
+                                        string_uid = string_ref["CF$UID"]
+                                        if string_uid < len(objects):
+                                            string_obj = objects[string_uid]
+                                            if isinstance(string_obj, str):
+                                                # Clean up the text and remove object replacement characters
+                                                text_str = TextParser._convert_escaped_characters(string_obj)
+                                                return text_str.replace(OBJECT_REPLACEMENT_CHAR, "")
+                return ""
+
+            # Fall back to typedstream format
             import typedstream
 
             # Unarchive the NSAttributedString stored in the blob
