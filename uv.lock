@@ -25,10 +25,11 @@ wheels = [
 
 [[package]]
 name = "imessage-extractor"
-version = "0.1"
+version = "0.3"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
+    { name = "pytypedstream" },
 ]
 
 [package.optional-dependencies]
@@ -40,6 +41,7 @@ test = [
 requires-dist = [
     { name = "click" },
     { name = "pytest", marker = "extra == 'test'" },
+    { name = "pytypedstream" },
 ]
 provides-extras = ["test"]
 
@@ -93,4 +95,13 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a3/5c/00a0e072241553e1a7496d638deababa67c5058571567b92a7eaa258397c/pytest-8.4.2.tar.gz", hash = "sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01", size = 1519618, upload-time = "2025-09-04T14:34:22.711Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl", hash = "sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79", size = 365750, upload-time = "2025-09-04T14:34:20.226Z" },
+]
+
+[[package]]
+name = "pytypedstream"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/d2/4632904c21890b1f397e6e9ef823b216f6f0a3a767897b092f592f16b90e/pytypedstream-0.1.0.tar.gz", hash = "sha256:c3b01790e667189966e98fcfeb638cc0541358ea7348745619fe58e3e8c9fd51", size = 84192, upload-time = "2023-06-26T23:43:35.555Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0d/1a/dbbbad9690c24506aec4571bc6613a5625b163b1607777109c9dabdbec07/pytypedstream-0.1.0-py3-none-any.whl", hash = "sha256:499920d4cb8bec8fd9d9cdd4c6312765eb418c398c10371ab1c9c0051104d278", size = 65857, upload-time = "2023-06-26T23:43:32.197Z" },
 ]

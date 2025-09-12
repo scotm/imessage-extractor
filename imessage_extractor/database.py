@@ -5,6 +5,8 @@ import json
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
+from .parsers import TextParser
+
 
 class IMessageDatabase:
     """A class to handle extraction of messages from the iMessage database.
@@ -13,12 +15,14 @@ class IMessageDatabase:
     query chat information, and export messages in various formats.
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: Optional[str] = None, attachment_path: Optional[str] = None):
         """Initialize the iMessage database handler.
 
         Args:
             db_path: Path to the chat.db file. If None, uses the default location
                     at ~/Library/Messages/chat.db
+            attachment_path: Path to the attachments directory. If None, uses the
+                           default location at ~/Library/Messages/Attachments/
 
         Attributes:
             db_path (str): The path to the iMessage database file
@@ -29,7 +33,10 @@ class IMessageDatabase:
         else:
             self.db_path = db_path
 
-        self.attachment_path = os.path.expanduser("~/Library/Messages/Attachments/")
+        if attachment_path is None:
+            self.attachment_path = os.path.expanduser("~/Library/Messages/Attachments/")
+        else:
+            self.attachment_path = os.path.expanduser(attachment_path)
 
     def apple_to_unix(self, ts: Optional[int]) -> Optional[float]:
         """Convert Apple timestamp to Unix timestamp.
@@ -331,7 +338,7 @@ class IMessageDatabase:
             result = list(chat_map.values())
             for chat in result:
                 chat["messages"].sort(key=lambda x: x["timestamp"] or "")
-            result.sort(key=lambda c: (c["messages"][-1]["timestamp"] if c["messages"] else ""), reverse=True)
+            result.sort(key=lambda p: (p["messages"][-1]["timestamp"] if p["messages"] else ""), reverse=True)
 
             # Write to JSON file
             with open(json_path, "w", encoding="utf-8") as f:
@@ -342,49 +349,12 @@ class IMessageDatabase:
     def _extract_text_from_attributed_body(self, attributed_body: bytes) -> str:
         """Extract plain text from attributedBody binary data.
 
-        The attributedBody column contains text in a binary format that needs to be parsed.
-        This method attempts to extract the plain text content using a targeted approach.
+        Delegates to the TextParser class for actual extraction.
 
         Args:
-            attributed_body: Binary data from the attributedBody column
+            attributed_body: Binary data from the ``attributedBody`` column.
 
         Returns:
-            Extracted plain text or empty string if extraction fails
+            Extracted plain text, or an empty string if decoding fails.
         """
-        if not attributed_body:
-            return ""
-
-        try:
-            # Simpler approach: extract readable text from the binary data
-            # Based on observations from the debug output, the actual message text
-            # is embedded in the binary data as readable strings
-
-            # Convert to string, ignoring errors
-            decoded = attributed_body.decode('utf-8', errors='ignore')
-
-            # Split on null bytes which are common separators in the binary data
-            parts = decoded.split('\x00')
-
-            # Look for parts that contain readable text
-            for part in parts:
-                # Clean the part by removing control characters
-                clean_part = ''.join(c for c in part if ord(c) >= 32 or c in '\n\r\t ')
-                clean_part = clean_part.strip()
-
-                # Check if this part looks like a message (reasonable length, mostly printable)
-                if 10 <= len(clean_part) <= 1000:  # Reasonable message length
-                    printable_ratio = sum(1 for c in clean_part if c.isalnum() or c.isspace() or c in '.,!?;:-()"\'') / len(clean_part)
-                    # If mostly printable characters and doesn't contain binary markers
-                    if printable_ratio > 0.7 and not any(marker in clean_part for marker in ['streamtyped', 'NSAttributedString', 'NSObject', 'NSString', '__kIM', 'NSNumber']):
-                        # Additional check: look for sentence-like structure
-                        if any(ending in clean_part for ending in ['.', '!', '?']) or len(clean_part.split()) > 3:
-                            # Return the cleanest part - one that starts with a letter and doesn't end with binary artifacts
-                            clean_part = clean_part.split('iI')[0].strip()  # Remove trailing binary artifacts
-                            if clean_part and clean_part[0].isalpha():
-                                return clean_part
-
-            # If no clear message found, return empty string
-            return ""
-        except Exception:
-            # If parsing fails, return empty string
-            return ""
+        return TextParser.extract_text_from_attributed_body(attributed_body)
