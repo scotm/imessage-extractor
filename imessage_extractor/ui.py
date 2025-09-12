@@ -11,6 +11,7 @@ from .constants import (
     ERR_INVALID_CHOICE,
     ERR_NO_CHATS_FOUND,
 )
+from .exceptions import InvalidChoiceError
 from .validators import validate_user_choice
 
 
@@ -39,7 +40,7 @@ def get_user_chat_choice(candidates: List[Dict[str, Any]]) -> Optional[int]:
     try:
         choice = click.prompt("Enter the number of the chat to export", type=int)
         return validate_user_choice(choice, len(candidates))
-    except Exception:
+    except InvalidChoiceError:
         click.echo(ERR_INVALID_CHOICE)
         return None
 

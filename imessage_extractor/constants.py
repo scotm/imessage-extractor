@@ -120,22 +120,7 @@ UTF8_ERROR_HANDLING = "ignore"
 CSV_NEWLINE = ""
 JSON_INDENT = 2
 
-# Chat Column Names
-CHAT_ROWID = "rowid"
-CHAT_GUID = "guid"
-CHAT_IDENTIFIER = "chat_identifier"
-CHAT_DISPLAY_NAME = "display_name"
-CHAT_PARTICIPANTS = "participants"
-
 # Alias for backward compatibility
 COL_CHAT_IDENTIFIER = CHAT_IDENTIFIER
 COL_DISPLAY_NAME = CHAT_DISPLAY_NAME
 COL_PARTICIPANTS = CHAT_PARTICIPANTS
-
-# Error Messages
-ERR_PERMISSION_DENIED = "Permission denied accessing {path}. Please ensure you have granted Full Disk Access to your terminal application in System Settings > Privacy & Security > Full Disk Access."
-ERR_DATABASE_LOCKED = "Database is locked: {path}. Please ensure the Messages app is completely quit before running this tool."
-ERR_DATABASE_NOT_FOUND = "Database file not found: {path}. Please check that the path is correct and the file exists."
-ERR_NO_CHATS_FOUND = "No chats found with the specified participant."
-ERR_INVALID_CHOICE = "Invalid choice."
-ERR_MISSING_KEYS = "Chat data structure is incomplete. Missing keys: {keys}"

@@ -15,12 +15,14 @@ class IMessageDatabase:
     query chat information, and export messages in various formats.
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: Optional[str] = None, attachment_path: Optional[str] = None):
         """Initialize the iMessage database handler.
 
         Args:
             db_path: Path to the chat.db file. If None, uses the default location
                     at ~/Library/Messages/chat.db
+            attachment_path: Path to the attachments directory. If None, uses the
+                           default location at ~/Library/Messages/Attachments/
 
         Attributes:
             db_path (str): The path to the iMessage database file
@@ -31,7 +33,10 @@ class IMessageDatabase:
         else:
             self.db_path = db_path
 
-        self.attachment_path = os.path.expanduser("~/Library/Messages/Attachments/")
+        if attachment_path is None:
+            self.attachment_path = os.path.expanduser("~/Library/Messages/Attachments/")
+        else:
+            self.attachment_path = os.path.expanduser(attachment_path)
 
     def apple_to_unix(self, ts: Optional[int]) -> Optional[float]:
         """Convert Apple timestamp to Unix timestamp.
@@ -333,7 +338,7 @@ class IMessageDatabase:
             result = list(chat_map.values())
             for chat in result:
                 chat["messages"].sort(key=lambda x: x["timestamp"] or "")
-            result.sort(key=lambda c: (c["messages"][-1]["timestamp"] if c["messages"] else ""), reverse=True)
+            result.sort(key=lambda p: (p["messages"][-1]["timestamp"] if p["messages"] else ""), reverse=True)
 
             # Write to JSON file
             with open(json_path, "w", encoding="utf-8") as f:
