@@ -242,7 +242,7 @@ class IMessageDatabase:
                          self.format_timestamp(unix_ts),
                          int(r["is_from_me"] or 0),
                          r["handle_identifier"] or "",
-                         (message_text or "").replace("\r\n", "\n"),
+                         TextParser.clean_text_for_csv(message_text or ""),
                          r["service"] or "",
                          r["attachment_name"] or "",
                          detected_mime,
