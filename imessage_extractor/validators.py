@@ -163,27 +163,3 @@ def validate_positive_integer(value: Any, field_name: str) -> int:
         return int_value
     except (ValueError, TypeError):
         raise InvalidDataFormatError(field_name, "positive integer", str(value))
-
-
-def sanitize_sql_input(input_str: str) -> str:
-    """Sanitize input for SQL queries to prevent injection.
-
-    Note: This is a basic sanitization. In production, use parameterized queries.
-
-    Args:
-        input_str: Input string to sanitize
-
-    Returns:
-        Sanitized string safe for SQL LIKE queries
-    """
-    if not input_str:
-        return ""
-
-    # Remove potentially dangerous characters
-    dangerous_chars = ["'", '"', ";", "--", "/*", "*/"]
-    sanitized = input_str
-
-    for char in dangerous_chars:
-        sanitized = sanitized.replace(char, "")
-
-    return sanitized.strip()
