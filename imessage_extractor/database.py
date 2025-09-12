@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
+from .constants import NANOSECONDS_THRESHOLD
 from .parsers import TextParser
 
 
@@ -60,7 +61,7 @@ class IMessageDatabase:
             return None
 
         # Heuristic: nanoseconds vs seconds
-        if ts > 10**12:  # clearly nanoseconds
+        if ts > NANOSECONDS_THRESHOLD:  # clearly nanoseconds
             return ts / 1e9 + 978307200
         else:
             return ts + 978307200
