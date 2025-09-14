@@ -10,11 +10,16 @@ from imessage_extractor.database import IMessageDatabase
 
 
 @pytest.fixture
-def mock_imessage_db(monkeypatch):
+def mock_imessage_db(monkeypatch, tmp_path):
     """Create an in-memory iMessage database with sample data."""
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
+
+    # Create a dummy attachment file
+    attachment_dir = tmp_path / "attachments"
+    attachment_dir.mkdir()
+    (attachment_dir / "file.txt").write_text("dummy content")
 
     # Create tables
     cur.executescript(
@@ -84,7 +89,7 @@ def mock_imessage_db(monkeypatch):
         VALUES (1, 1);
 
         INSERT INTO attachment(rowid, filename, transfer_name, mime_type)
-        VALUES (1, '/path/to/file.txt', 'file.txt', 'text/plain');
+        VALUES (1, 'file.txt', 'file.txt', 'text/plain');
 
         INSERT INTO message_attachment_join(message_id, attachment_id)
         VALUES (1, 1);
@@ -92,7 +97,7 @@ def mock_imessage_db(monkeypatch):
     )
     conn.commit()
 
-    db = IMessageDatabase(db_path=":memory:")
+    db = IMessageDatabase(db_path=":memory:", attachment_path=str(attachment_dir))
     monkeypatch.setattr(IMessageDatabase, "get_connection", lambda self: conn)
 
     yield db
