@@ -34,9 +34,9 @@ class HTMLExporter:
         expanded = os.path.expanduser(path)
         normalized = os.path.normpath(expanded)
         
-        # Ensure path is absolute
+        # Ensure path is absolute by converting relative paths to absolute
         if not os.path.isabs(normalized):
-            raise ValueError("Output path must be absolute")
+            normalized = os.path.abspath(normalized)
             
         return normalized
 
