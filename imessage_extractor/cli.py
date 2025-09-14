@@ -100,3 +100,17 @@ def export_chat_html(participant, output_dir, db_path, verbose):
     """
     exit_code = export_chat_html_command(participant, output_dir, db_path, verbose)
     return exit_code
+
+
+@cli.command(name="list-chats")
+@click.option("-d", "--db-path", type=click.Path(exists=True), help="Path to chat.db file")
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose logging")
+def list_chats(db_path, verbose):
+    """List all available chats.
+
+    Args:
+        db_path: Optional path to chat.db file if not using the default location
+        verbose: Enable verbose logging for debugging
+    """
+    exit_code = list_chats_command(db_path, verbose)
+    return exit_code

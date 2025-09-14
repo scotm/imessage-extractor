@@ -63,7 +63,7 @@ def test_list_chats_help():
     runner = CliRunner()
     result = runner.invoke(cli, ["list-chats", "--help"])
     assert result.exit_code == 0
-    assert "List all chats with a specific participant" in result.output
+    assert "List all available chats." in result.output
 
 
 def test_permission_error_handling():
