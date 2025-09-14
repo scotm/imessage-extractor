@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from .constants import DEFAULT_CSV_FILENAME, DEFAULT_JSON_FILENAME
+from .constants import DEFAULT_CSV_FILENAME, DEFAULT_JSON_FILENAME, DEFAULT_HTML_OUTPUT_DIR
 from .database import IMessageDatabase
 from .error_handlers import handle_error_with_fallback
 from .exceptions import NoChatsFoundError
@@ -188,6 +188,69 @@ def list_chats_command(
 
         if verbose:
             logger.debug("List chats completed successfully")
+
+        return 0
+
+    except Exception as e:
+        return handle_error_with_fallback(e, logger)
+
+
+def export_chat_html_command(
+    participant: str,
+    output_dir: Optional[str] = None,
+    db_path: Optional[str] = None,
+    verbose: bool = False
+) -> int:
+    """Export a chat conversation with a specific participant to HTML.
+
+    Args:
+        participant: A substring of the phone number or email of the participant
+        output_dir: Path to the output HTML directory. Defaults to DEFAULT_HTML_OUTPUT_DIR
+        db_path: Optional path to chat.db file if not using the default location
+        verbose: Enable verbose logging for debugging
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    logger = setup_logging(verbose)
+
+    try:
+        if verbose:
+            logger.debug(f"Starting export-chat-html command with participant: {participant}, output_dir: {output_dir}, db_path: {db_path}")
+
+        # Validate inputs
+        validated_participant = validate_participant_identifier(participant)
+        validated_output_dir = validate_file_path(output_dir or DEFAULT_HTML_OUTPUT_DIR)
+
+        # Connect to database
+        db = IMessageDatabase(db_path)
+        if verbose:
+            logger.debug(f"Connected to database: {db.db_path}")
+
+        # Find chats matching the participant
+        candidates = db.find_chat_by_participant(validated_participant)
+        if verbose:
+            logger.debug(f"Found {len(candidates)} chat candidates")
+
+        if not candidates:
+            raise NoChatsFoundError(validated_participant)
+
+        # Validate candidates structure
+        validate_chat_candidates(candidates)
+
+        # Select chat to export
+        selected_chat = select_chat_from_candidates(candidates)
+        if selected_chat is None:
+            return 1
+
+        display_chat_info(selected_chat)
+
+        # Export the chat to HTML
+        db.export_chat_to_html(selected_chat["rowid"], validated_output_dir)
+        display_export_success(validated_output_dir)
+
+        if verbose:
+            logger.debug("HTML export completed successfully")
 
         return 0
 

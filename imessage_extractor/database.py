@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 
 from .constants import NANOSECONDS_THRESHOLD
 from .parsers import TextParser
+from .html_exporter import HTMLExporter
 
 
 class IMessageDatabase:
@@ -373,3 +374,110 @@ class IMessageDatabase:
             Extracted plain text, or an empty string if decoding fails.
         """
         return TextParser.extract_text_from_attributed_body(attributed_body)
+
+    def export_chat_to_html(self, chat_rowid: int, output_dir: str) -> None:
+        """Export a specific chat to HTML format.
+
+        Retrieves all messages and attachments from a specific chat thread and exports them
+        to an HTML file within the specified output directory, along with assets and attachments.
+
+        Args:
+            chat_rowid: The rowid of the chat to export from the chat table
+            output_dir: Path to the output directory for the HTML export
+        """
+        # Placeholder for HTML export logic
+        # This method will query the database for messages and attachments,
+        # then generate HTML, CSS, and copy attachments to the output_dir.
+        # The full implementation will involve creating a new HTML exporter module.
+        conn = self.get_connection()
+        try:
+            # Get chat information
+            chat_info_query = """
+            SELECT
+                c.rowid, c.guid, c.chat_identifier, c.display_name,
+                GROUP_CONCAT(h.id, ',') AS participants
+            FROM chat c
+            LEFT JOIN chat_handle_join chj ON chj.chat_id = c.rowid
+            LEFT JOIN handle h ON h.rowid = chj.handle_id
+            WHERE c.rowid = ?
+            GROUP BY c.rowid, c.guid, c.chat_identifier, c.display_name
+            """
+            chat_data = conn.execute(chat_info_query, (chat_rowid,)).fetchone()
+            if not chat_data:
+                raise ValueError(f"Chat with rowid {chat_rowid} not found.")
+            
+            chat_data_dict = dict(chat_data)
+            chat_data_dict["participants"] = [p for p in (chat_data_dict["participants"] or "").split(",") if p]
+
+            # Get all messages for the chat
+            messages_query = """
+            SELECT
+                m.rowid AS message_id,
+                m.text,
+                m.attributedBody,
+                m.is_from_me,
+                m.handle_id,
+                h.id AS sender,
+                m.service,
+                m.date,
+                m.associated_message_guid,
+                m.thread_originator_guid,
+                m.item_type
+            FROM chat_message_join cmj
+            JOIN message m ON m.rowid = cmj.message_id
+            LEFT JOIN handle h ON h.rowid = m.handle_id
+            WHERE cmj.chat_id = ?
+            ORDER BY m.date ASC, m.rowid ASC
+            """
+            messages = conn.execute(messages_query, (chat_rowid,)).fetchall()
+
+            # Get all attachments for messages in this chat
+            attachments_query = """
+            SELECT
+                maj.message_id,
+                a.transfer_name AS name,
+                a.mime_type AS mime,
+                a.filename AS path
+            FROM message_attachment_join maj
+            JOIN attachment a ON a.rowid = maj.attachment_id
+            JOIN chat_message_join cmj ON cmj.message_id = maj.message_id
+            WHERE cmj.chat_id = ?
+            """
+            attachments = conn.execute(attachments_query, (chat_rowid,)).fetchall()
+
+            att_map = {}
+            for a in attachments:
+                detected_mime = a["mime"] or ""
+                if a["path"] and os.path.exists(os.path.join(self.attachment_path, a["path"])):
+                    detected_mime = TextParser.detect_mime_type(os.path.join(self.attachment_path, a["path"]))
+                att_map.setdefault(a["message_id"], []).append({
+                    "name": a["name"], "mime": detected_mime, "path": a["path"]
+                })
+
+            processed_messages = []
+            for m in messages:
+                unix_ts = self.apple_to_unix(m["date"])
+                message_text = m["text"]
+                if not message_text and m["attributedBody"]:
+                    message_text = self._extract_text_from_attributed_body(m["attributedBody"])
+
+                processed_messages.append({
+                    "id": m["message_id"],
+                    "timestamp": self.format_timestamp(unix_ts) if unix_ts else None,
+                    "from_me": bool(m["is_from_me"]),
+                    "sender": m["sender"],
+                    "service": m["service"],
+                    "text": message_text,
+                    "item_type": m["item_type"],
+                    "associated_message_guid": m["associated_message_guid"],
+                    "thread_originator_guid": m["thread_originator_guid"],
+                    "attachments": att_map.get(m["message_id"], [])
+                })
+            
+            # Initialize and run HTML exporter
+            exporter = HTMLExporter(output_dir, self.attachment_path)
+            exporter.export_chat(chat_data_dict, processed_messages)
+
+        finally:
+            conn.close()
+

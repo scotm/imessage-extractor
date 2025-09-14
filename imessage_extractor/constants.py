@@ -8,6 +8,7 @@ DEFAULT_ATTACHMENTS_PATH = "~/Library/Messages/Attachments/"
 # Default Output Files
 DEFAULT_CSV_FILENAME = "imessage_chat.csv"
 DEFAULT_JSON_FILENAME = "imessage_all.json"
+DEFAULT_HTML_OUTPUT_DIR = "imessage_export_html"
 
 # Timestamp Conversion Constants
 APPLE_EPOCH_OFFSET = 978307200  # Seconds between Unix epoch (1970) and Apple epoch (2001)

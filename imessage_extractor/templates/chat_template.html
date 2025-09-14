@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Export - {{ chat.display_name or chat.participants | join(', ') }}</title>
+    <link rel="stylesheet" href="styles/chat.css">
+</head>
+<body>
+    <header>
+        <h1>Chat: {{ chat.display_name or chat.participants | join(', ') }}</h1>
+        <div class="chat-info">
+            <span>Exported: {{ export_date }}</span>
+            <span>{{ total_messages }} messages</span>
+        </div>
+    </header>
+    
+    <main class="chat-container">
+        {% for date, messages in messages_by_date.items() %}
+        <div class="date-group">
+            <div class="date-header">{{ date }}</div>
+            {% for msg in messages %}
+            <div class="message {% if msg.from_me %}sent{% else %}received{% endif %}">
+                <div class="message-bubble">
+                    {% if msg.text %}
+                    <div class="message-text">{{ msg.text }}</div>
+                    {% endif %}
+                    {% if msg.attachments %}
+                    <div class="message-attachments">
+                        {% for att in msg.attachments %}
+                            {% if 'image' in att.mime %}
+                            <img src="{{ att.copied_path }}" alt="{{ att.name }}" class="attachment-image">
+                            {% elif 'video' in att.mime %}
+                            <video controls class="attachment-video">
+                                <source src="{{ att.copied_path }}" type="{{ att.mime }}">
+                                Your browser does not support the video tag.
+                            </video>
+                            {% else %}
+                            <a href="{{ att.copied_path }}" download>{{ att.name }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="message-info">
+                        <span class="sender">{{ msg.sender }}</span>
+                        <span class="timestamp">{{ msg.timestamp.split('T')[1].split('+')[0] if msg.timestamp else '' }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </main>
+</body>
+</html>
