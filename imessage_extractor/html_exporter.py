@@ -63,8 +63,22 @@ class HTMLExporter:
         if not chat_data:
             return False
             
+        # Check for required keys (case insensitive)
+        chat_keys = set(chat_data.keys())
+        required_keys_lower = set(key.lower() for key in REQUIRED_CHAT_KEYS)
+        chat_keys_lower = set(key.lower() for key in chat_keys)
+        
+        if not required_keys_lower.issubset(chat_keys_lower):
+            return False
+            
+        # Check that required values are not None
         for key in REQUIRED_CHAT_KEYS:
-            if key not in chat_data:
+            # Handle case where database returns ROWID instead of rowid
+            actual_key = key
+            if key == "rowid" and "ROWID" in chat_data:
+                actual_key = "ROWID"
+                
+            if actual_key not in chat_data or chat_data[actual_key] is None:
                 return False
                 
         return True
