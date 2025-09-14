@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from PIL import Image
+import piexif
 
 from .parsers import TextParser
 
@@ -73,7 +74,30 @@ class HTMLExporter:
         if is_image:
             try:
                 with Image.open(full_original_path) as img:
-                    img.save(new_attachment_path, "PNG")
+                    # Correct image orientation based on EXIF data
+                    try:
+                        exif_dict = piexif.load(img.info.get('exif', b''))
+                        orientation = exif_dict.get('0th', {}).get(piexif.ImageIFD.Orientation, 1)
+
+                        if orientation != 1:
+                            if orientation == 3:
+                                img = img.rotate(180, expand=True)
+                            elif orientation == 6:
+                                img = img.rotate(270, expand=True)
+                            elif orientation == 8:
+                                img = img.rotate(90, expand=True)
+
+                            # Remove orientation tag to avoid re-rotating
+                            exif_dict['0th'][piexif.ImageIFD.Orientation] = 1
+                            exif_bytes = piexif.dump(exif_dict)
+                            img.save(new_attachment_path, "PNG", exif=exif_bytes)
+                        else:
+                            # No rotation needed, just save as PNG
+                            img.save(new_attachment_path, "PNG")
+
+                    except (KeyError, ValueError, piexif.InvalidImageDataError):
+                        # Fallback for images without valid EXIF data
+                        img.save(new_attachment_path, "PNG")
                 final_mime_type = "image/png"
             except Exception:
                 shutil.copy(full_original_path, new_attachment_path)
