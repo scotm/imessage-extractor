@@ -7,25 +7,79 @@ from PIL import Image
 import piexif
 
 from .parsers import TextParser
+from .constants import (
+    EXIF_ORIENTATION_NORMAL,
+    EXIF_ORIENTATION_ROTATE_180,
+    EXIF_ORIENTATION_ROTATE_90_CW,
+    EXIF_ORIENTATION_ROTATE_90_CCW,
+    REQUIRED_CHAT_KEYS
+)
 
 class HTMLExporter:
     """Handles the generation of HTML chat exports."""
 
     def __init__(self, output_dir: str, attachment_path: str):
-        self.output_dir = output_dir
-        self.attachment_path = attachment_path
+        # Validate paths to prevent path traversal
+        self.output_dir = self._validate_output_path(output_dir)
+        self.attachment_path = os.path.normpath(attachment_path)
         self.template_dir = os.path.join(os.path.dirname(__file__), "templates")
         self.env = Environment(loader=FileSystemLoader(self.template_dir))
-
+        
         self.html_output_path = os.path.join(self.output_dir, "index.html")
         self.styles_output_dir = os.path.join(self.output_dir, "styles")
         self.attachments_output_dir = os.path.join(self.output_dir, "attachments")
+
+    def _validate_output_path(self, path: str) -> str:
+        """Validates and sanitizes output path to prevent path traversal vulnerabilities."""
+        expanded = os.path.expanduser(path)
+        normalized = os.path.normpath(expanded)
+        
+        # Ensure path is absolute
+        if not os.path.isabs(normalized):
+            raise ValueError("Output path must be absolute")
+            
+        return normalized
+
+    def _parse_timestamp(self, timestamp: str) -> str:
+        """Safely parse timestamp and extract time portion."""
+        if not timestamp:
+            return ""
+        
+        try:
+            # Handle different timestamp formats
+            if "T" in timestamp and "+" in timestamp:
+                return timestamp.split("T")[1].split("+")[0]
+            elif "T" in timestamp:
+                return timestamp.split("T")[1].split("Z")[0]
+            else:
+                # If we can't parse it, return as is
+                return timestamp
+        except (IndexError, AttributeError):
+            # Fallback for any parsing errors
+            return timestamp
+
+    def _validate_chat_data(self, chat_data: Dict[str, Any]) -> bool:
+        """Validate that chat data contains all required fields."""
+        if not chat_data:
+            return False
+            
+        for key in REQUIRED_CHAT_KEYS:
+            if key not in chat_data:
+                return False
+                
+        return True
 
     def _prepare_output_directory(self):
         """Creates necessary output directories."""
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.styles_output_dir, exist_ok=True)
         os.makedirs(self.attachments_output_dir, exist_ok=True)
+        
+        # Check if index.html already exists
+        if os.path.exists(self.html_output_path):
+            # For now, we'll overwrite existing files
+            # In the future, we might want to prompt the user or create a backup
+            pass
 
     def _copy_assets(self):
         """Copies static assets like CSS and any graphics."""
@@ -34,20 +88,25 @@ class HTMLExporter:
             os.path.join(os.path.dirname(__file__), "styles", "chat.css"),
             os.path.join(self.styles_output_dir, "chat.css")
         )
-        # TODO: Copy simple and elegant graphics if available/designed.
+        # TODO: Copy graphics assets if any are added to the project in the future.
 
     def _copy_attachment(self, attachment_info: Dict[str, Any], message_id: int) -> Dict[str, str]:
         """Copies an attachment, converts images to PNG, and returns new path and mime type."""
         original_path = attachment_info.get("path")
         if not original_path:
-            return None
+            return {}
+        
+        # Validate path to prevent path traversal
+        original_path = os.path.normpath(original_path)
+        if original_path.startswith(("/", "../")):
+            return {}
 
         full_original_path = os.path.expanduser(original_path)
         if not os.path.exists(full_original_path):
             full_original_path = os.path.join(self.attachment_path, original_path)
 
         if not os.path.exists(full_original_path):
-            return None
+            return {}
 
         original_filename = os.path.basename(original_path)
         base_new_filename = f"{message_id}_{original_filename}"
@@ -77,14 +136,14 @@ class HTMLExporter:
                     # Correct image orientation based on EXIF data
                     try:
                         exif_dict = piexif.load(img.info.get('exif', b''))
-                        orientation = exif_dict.get('0th', {}).get(piexif.ImageIFD.Orientation, 1)
+                        orientation = exif_dict.get('0th', {}).get(piexif.ImageIFD.Orientation, EXIF_ORIENTATION_NORMAL)
 
-                        if orientation != 1:
-                            if orientation == 3:
+                        if orientation != EXIF_ORIENTATION_NORMAL:
+                            if orientation == EXIF_ORIENTATION_ROTATE_180:
                                 img = img.rotate(180, expand=True)
-                            elif orientation == 6:
+                            elif orientation == EXIF_ORIENTATION_ROTATE_90_CW:
                                 img = img.rotate(270, expand=True)
-                            elif orientation == 8:
+                            elif orientation == EXIF_ORIENTATION_ROTATE_90_CCW:
                                 img = img.rotate(90, expand=True)
 
                             # Remove orientation tag to avoid re-rotating
@@ -100,16 +159,32 @@ class HTMLExporter:
                         img.save(new_attachment_path, "PNG")
                 final_mime_type = "image/png"
             except Exception:
-                shutil.copy(full_original_path, new_attachment_path)
+                # Handle cases where image processing fails
+                try:
+                    shutil.copy(full_original_path, new_attachment_path)
+                except Exception:
+                    # If copying also fails, return empty dict
+                    return {}
         else:
             shutil.copy(full_original_path, new_attachment_path)
         
-        return {"copied_path": os.path.relpath(new_attachment_path, self.output_dir), "mime": final_mime_type, "name": attachment_info.get("name")}
+        return {
+            "copied_path": os.path.relpath(new_attachment_path, self.output_dir), 
+            "mime": final_mime_type or "", 
+            "name": attachment_info.get("name") or ""
+        }
 
     def export_chat(self, chat_data: Dict[str, Any], messages: List[Dict[str, Any]]):
         """Exports chat data and messages to an HTML file."""
+        # Validate chat data
+        if not self._validate_chat_data(chat_data):
+            raise ValueError("Chat data is missing required fields")
+        
         self._prepare_output_directory()
         self._copy_assets()
+        
+        # Add timestamp parsing helper to environment globals
+        self.env.globals['parse_timestamp'] = self._parse_timestamp
 
         processed_messages = []
         for msg in messages:

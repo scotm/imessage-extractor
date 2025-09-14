@@ -15,12 +15,12 @@
         </div>
     </header>
     
-    <main class="chat-container">
+    <main class="chat-container" role="main">
         {% for date, messages in messages_by_date.items() %}
-        <div class="date-group">
-            <div class="date-header">{{ date }}</div>
+        <div class="date-group" role="region" aria-label="Messages from {{ date }}">
+            <div class="date-header" role="heading" aria-level="2">{{ date }}</div>
             {% for msg in messages %}
-            <div class="message {% if msg.from_me %}sent{% else %}received{% endif %}">
+            <div class="message {% if msg.from_me %}sent{% else %}received{% endif %}" role="article" aria-label="{% if msg.from_me %}Sent message{% else %}Received message{% endif %}">
                 <div class="message-bubble">
                     {% if msg.text %}
                     <div class="message-text">{{ msg.text }}</div>
@@ -29,21 +29,21 @@
                     <div class="message-attachments">
                         {% for att in msg.attachments %}
                             {% if 'image' in att.mime %}
-                            <img src="{{ att.copied_path }}" alt="{{ att.name }}" class="attachment-image">
+                            <img src="{{ att.copied_path }}" alt="{{ att.name or 'Image attachment' }}" class="attachment-image">
                             {% elif 'video' in att.mime %}
-                            <video controls class="attachment-video">
+                            <video controls class="attachment-video" aria-label="Video attachment">
                                 <source src="{{ att.copied_path }}" type="{{ att.mime }}">
                                 Your browser does not support the video tag.
                             </video>
                             {% else %}
-                            <a href="{{ att.copied_path }}" download>{{ att.name }}</a>
+                            <a href="{{ att.copied_path }}" download aria-label="Download attachment {{ att.name or 'file' }}">{{ att.name or "Attachment" }}</a>
                             {% endif %}
                         {% endfor %}
                     </div>
                     {% endif %}
                     <div class="message-info">
                         <span class="sender">{{ msg.sender }}</span>
-                        <span class="timestamp">{{ msg.timestamp.split('T')[1].split('+')[0] if msg.timestamp else '' }}</span>
+                        <span class="timestamp">{{ parse_timestamp(msg.timestamp) if msg.timestamp else '' }}</span>
                     </div>
                 </div>
             </div>
